@@ -1,23 +1,22 @@
 package org.expatriadosit.web.rest
 
-import spray.can.server.{ServerSettings, HttpServer, SprayCanHttpServerApp}
 import com.typesafe.scalalogging.slf4j.Logging
-import spray.io.{IOExtension, PerConnectionHandler, PipelineContext}
-import akka.actor.{Props, ActorRef}
+import akka.actor.{ActorSystem, Props, ActorRef}
 import org.expatriadosit.web.common.conf.configuration._
 import org.expatriadosit.web.common.mongo.mongoDBobjects
 import org.expatriadosit.web.rest.resource.ExpatsResource
+import akka.io.IO
+import spray.can.Http
 
-object ExpatsWebApp extends App with SprayCanHttpServerApp with Logging {
+object ExpatsWebApp extends App with Logging {
 
-  implicit val ioBridge = IOExtension(system).ioBridge()
+  implicit val system = ActorSystem()
 
-  def messageCreator(ctx:PipelineContext) : ActorRef = {
-    system.actorOf(Props( new ExpatsResource(mongoDBobjects.sampleCollection)))
-  }
-
-
-  val httpServer = system.actorOf(Props(new HttpServer(ioBridge, PerConnectionHandler(messageCreator), ServerSettings())), "http-server")
+  val httpServer = system.actorOf(Props( new ExpatsResource(mongoDBobjects.sampleCollection)))
   // create a new HttpServer using our handler and tell it where to bind to
-  httpServer ! Bind(interface = conf.getString("http.server.interface"), port = conf.getInt("http.server.port"))
+  IO(Http) ! Http.Bind(
+                httpServer,
+                interface = conf.getString("http.server.interface"),
+                port = conf.getInt("http.server.port")
+              )
 }
